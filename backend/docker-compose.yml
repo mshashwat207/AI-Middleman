@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=sqlite:///./middleman.db
+      - ENCRYPTION_KEY=tU7z8Q0xG8H_3c1-Xg7M_gJ9wL6j_3K0xY4gM8b-V9g=
+      - DEFAULT_LLM_PROVIDER=mock
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
