@@ -68,6 +68,19 @@ def _on_startup():
         db.close()
 
 
-@app.get("/")
-def root():
-    return {"service": "VUL-LLM", "version": "2.1.0", "status": "running"}
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+if os.path.exists("frontend/dist"):
+    app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
+
+    @app.exception_handler(404)
+    async def custom_404_handler(request: Request, exc):
+        if request.url.path.startswith("/api"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return FileResponse("frontend/dist/index.html")
+else:
+    @app.get("/")
+    def root():
+        return {"service": "VUL-LLM", "version": "2.1.0", "status": "running (No frontend found)"}

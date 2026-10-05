@@ -65,7 +65,8 @@ async def run_batch(input_csv: str, output_json: str, provider: str, enforce_fir
                 print(f" -> Error: {e}")
                 
         # Sleep to respect free-tier API rate limits (e.g. Gemini 15 RPM)
-        time.sleep(4)
+        if provider != "mock":
+            time.sleep(4)
         
     # Aggregate statistics
     successful = [r for r in results if not r["blocked"]]
