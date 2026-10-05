@@ -406,14 +406,14 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
 
   const fetchHistory = useCallback(() => {
-    fetch("/api/history?limit=20")
+    fetch((import.meta.env.VITE_API_URL || "") + "/api/history?limit=20")
       .then((r) => r.json())
       .then((d) => setHistory(d.entries || []))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch("/api/providers")
+    fetch((import.meta.env.VITE_API_URL || "") + "/api/providers")
       .then((r) => r.json())
       .then((d) => {
         if (d.providers) {
@@ -465,12 +465,12 @@ export default function App() {
         form.append("enforce_firewall", enforceFirewall);
         form.append("k_threshold", kThreshold);
         if (modelOverride) form.append("model_name", modelOverride);
-        res = await fetch("/api/upload-benchmark", { method: "POST", body: form });
+        res = await fetch((import.meta.env.VITE_API_URL || "") + "/api/upload-benchmark", { method: "POST", body: form });
       } else {
         const trimmed = prompt.trim();
         if (!trimmed) { setError("Prompt cannot be empty."); setLoading(false); return; }
         if (trimmed.length > MAX_PROMPT) { setError(`Prompt exceeds ${MAX_PROMPT.toLocaleString()} character limit.`); setLoading(false); return; }
-        res = await fetch("/api/benchmark", {
+        res = await fetch((import.meta.env.VITE_API_URL || "") + "/api/benchmark", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
