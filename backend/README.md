@@ -1,65 +1,85 @@
-# Secure AI Middleman
+# VUL-LLM Backend
 
-A privacy-first middleware/proxy between users/applications and external LLM APIs.
+FastAPI backend for the VUL-LLM PII masking benchmark.
 
-## Project Objective
+## Quick start
 
-The fundamental trust boundary: RAW PII MUST NEVER BE SENT TO THE EXTERNAL LLM. Only masked tokens and non-sensitive context may leave the controlled environment.
-
-```mermaid
-flowchart TD
-    A[Raw User Input] --> B[PII Detection]
-    B --> C[Tokenization & Masking]
-    C --> D[Encrypted Token Store]
-    C --> E[Prompt Guard]
-    E --> F[Masked LLM Request]
-    F --> G[External LLM]
-    G --> H[Response Security Check]
-    H --> I[Controlled Re-hydration]
-    I --> J[Safe User Response]
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m spacy download en_core_web_lg
+cp .env.example .env
+# Add GROQ_API_KEY or GEMINI_API_KEY to .env
+python scripts/init_db.py
+uvicorn app.main:app --reload
 ```
 
-## Setup
+## Environment variables
 
-1. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   python -m spacy download en_core_web_lg
-   ```
+| Variable | Required | Description |
+|---|---|---|
+| ENCRYPTION_KEY | Recommended | Fernet key. Auto-generated if blank (tokens lost on restart). |
+| GROQ_API_KEY | One of these | Free at console.groq.com |
+| GEMINI_API_KEY | One of these | Free at aistudio.google.com |
+| OPENAI_API_KEY | Optional | Paid |
+| ANTHROPIC_API_KEY | Optional | Paid |
+| DEFAULT_LLM_PROVIDER | No | mock / groq / gemini / openai / anthropic |
+| GROQ_MODEL | No | Default: llama-3.1-8b-instant |
+| GEMINI_MODEL | No | Default: gemini-1.5-flash |
+| PII_CONFIDENCE_THRESHOLD | No | 0.0-1.0, default 0.65 |
+| LLM_TIMEOUT_SECONDS | No | Default: 30 |
 
-2. **Configuration**
-   Copy `.env.example` to `.env` and fill in API keys if needed (defaults to a mock provider).
+Generate an encryption key:
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
 
-3. **Initialize Database**
-   ```bash
-   python scripts/init_db.py
-   ```
+## Project structure
 
-4. **Run Server**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+```
+app/
+  core/config.py              Settings from .env
+  api/routes/
+    benchmark.py              POST /api/benchmark, POST /api/upload-benchmark
+    history.py                GET /api/history
+    chat.py                   POST /api/v1/chat
+    security.py               POST /api/v1/security/mask|analyze
+    health.py                 GET /health
+  services/
+    pii_detector.py           Presidio + custom Indian NER (Aadhaar, PAN, phone)
+    indirect_pii_detector.py  Local contextual identity detection (no LLM)
+    comparative_engine.py     3 masking methods
+    prompt_guard.py           Injection firewall
+    semantic_scorer.py        Cosine similarity via spaCy vectors
+    llm_service.py            Provider dispatcher
+    token_store.py            Fernet-encrypted token persistence
+    rehydrator.py             Token-to-value restoration
+    file_extractor.py         PDF, DOCX, TXT, image OCR extraction
+  providers/
+    groq_provider.py
+    gemini_provider.py
+    openai_provider.py
+    anthropic_provider.py
+    mock_provider.py
+  models/
+    audit.py                  AuditLog SQLAlchemy model
+    token_mapping.py          Session + TokenMapping models
+    database.py               SQLAlchemy engine
+```
 
-5. **Run Docker**
-   ```bash
-   docker compose up --build
-   ```
+## Running tests
 
-## Demo & Benchmark
+```bash
+pytest tests/ -v
+```
 
-- **Demo**: `python scripts/demo.py`
-- **Benchmark**: `python scripts/run_benchmark.py`
-- **Tests**: `pytest`
+## Supported Groq models (free)
 
-## API Endpoints
-
-- `POST /api/v1/chat`: Main pipeline
-- `POST /api/v1/security/mask`: Preview token masking
-- `POST /api/v1/security/analyze`: Preview security risks
-- `GET /health`, `/health/ready`, `/health/live`: Health status
-- `GET /docs`: Swagger UI for API testing
-
-## Security Limitations & Future Improvements
-- Prompt injection detection is rule-based heuristics. Future versions should use an ML classifier.
-- Hinglish NER is standard Presidio; a specialized cross-lingual BERT model would improve code-mixed recall.
-- Currently uses SQLite; designed to drop in PostgreSQL.
+| Model | Context | Best for |
+|---|---|---|
+| llama-3.1-8b-instant | 128k | Default, fast |
+| llama-3.3-70b-versatile | 128k | Best quality |
+| mixtral-8x7b-32768 | 32k | Long documents |
+| gemma2-9b-it | 8k | Google model |
+| llama3-70b-8192 | 8k | Llama 3 base |
